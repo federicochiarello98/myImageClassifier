@@ -3,9 +3,11 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 import numpy as np
 import csv
+import time
 
 from PIL import Image
 from keras import layers
+from keras.callbacks import Callback
 from keras.models import Sequential
 from keras.preprocessing.image import ImageDataGenerator
 from keras.applications.inception_v3 import InceptionV3
@@ -118,13 +120,26 @@ model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=learning_rate),
               loss=tf.keras.losses.BinaryCrossentropy(from_logits=False),
               metrics=['accuracy'])
 
+class TimeHistory(Callback):
+    def on_train_begin(self, logs={}):
+        self.times = []
+
+    def on_epoch_begin(self, batch, logs={}):
+        self.epoch_time_start = time.time()
+
+    def on_epoch_end(self, batch, logs={}):
+        self.times.append(time.time() - self.epoch_time_start)
+
 ################TRAIN#####################################################
 
 model.summary()
 
+time_callback = TimeHistory()
+
 history = model.fit(
   train_ds,
   steps_per_epoch = 169,
+  callbacks=time_callback,
   validation_data=val_ds,
   epochs=epochs
 )
@@ -162,9 +177,12 @@ model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=learning_rate_fine
               loss=tf.keras.losses.BinaryCrossentropy(from_logits=False),
               metrics=['accuracy'])
 
+time_callback_fine = TimeHistory()
+
 history = model.fit(
   train_ds,
   steps_per_epoch = 169,
+  callbacks=time_callback_fine,
   validation_data=val_ds,
   epochs=epochs_fine
 )
@@ -200,10 +218,12 @@ plt.show()
 
 model.save('Mymodel640.h5')
 
+time = time_callback+time_callback_fine
+
 with open("results.csv",'w') as file:
   writer = csv.writer(file)
 
-  writer.writerow(["EPOCHS","LOSS","ACC","VAL_LOSS","VAL_ACC"])
+  writer.writerow(["EPOCHS","LOSS","ACC","VAL_LOSS","VAL_ACC","TIME"])
   for i in epochs_range:
-    writer.writerow([str(i),loss[i],acc[i],val_loss[i],val_acc[i]])
+    writer.writerow([str(i),loss[i],acc[i],val_loss[i],val_acc[i],time.pop(0)])
 
